@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from textblob import TextBlob
+
 import smtplib
 from flask_cors import CORS
 import json
@@ -7,8 +7,8 @@ from datetime import datetime
 import os
 from firebase_admin import storage
 import mimetypes
-import pandas as pd
-from io import StringIO
+
+
 import re
 import random
 import traceback
@@ -64,22 +64,29 @@ def get_firebase_credentials():
             return None
 
 # Initialize Firebase only once
+# Simplified Firebase initialization for Vercel
 try:
-    # Check if Firebase is already initialized
     if not firebase_admin._apps:
-        cred = get_firebase_credentials()
-        if cred:
-            firebase_admin.initialize_app(cred, {
-                'storageBucket': 'help-desk-campusconnect.firebasestorage.app'
-            })
-            print("Firebase initialized successfully")
-        else:
-            print("Failed to get Firebase credentials")
-            raise Exception("Firebase credentials not available")
-    else:
-        print("Firebase already initialized")
+        # Use environment variables directly
+        config_dict = {
+            "type": "service_account",
+            "project_id": os.getenv('FIREBASE_PROJECT_ID'),
+            "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
+            "private_key": os.getenv('FIREBASE_PRIVATE_KEY', '').replace('\\n', '\n'),
+            "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
+            "client_id": os.getenv('FIREBASE_CLIENT_ID'),
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_CERT_URL')
+        }
+        
+        cred = credentials.Certificate(config_dict)
+        firebase_admin.initialize_app(cred, {
+            'storageBucket': 'help-desk-campusconnect.firebasestorage.app'
+        })
+        print("Firebase initialized successfully")
     
-    # Initialize Firestore and Storage clients
     db = firestore.client()
     bucket = storage.bucket()
     
@@ -90,11 +97,7 @@ except Exception as e:
 
 # Flask Setup
 app = Flask(__name__)
-CORS(app, origins=[
-    "http://localhost:3000",  # Keep for local development
-    "https://feedbackranker.netlify.app",  # Your Netlify domain
-    "https://*.netlify.app"  # All Netlify apps (optional)
-])
+CORS(app, origins=["*"])  # Temporarily allow all origins for testing
 
 
 # Email configuration - Use environment variables for security
@@ -473,11 +476,26 @@ def verify_student_route():
         csv_content = blob.download_as_string().decode('utf-8')
         
         # Parse the CSV and look for the student ID using pandas
-        try:
-            df = pd.read_csv(StringIO(csv_content))
-        except Exception as e:
-            print(f"Error parsing CSV: {e}")
-            # Try with different delimiters if standard CSV parsing fails
+        # Simple CSV processing without pandas for Vercel compatibility
+try:
+    lines = csv_content.strip().split('\n')
+    if len(lines) < 2:
+        return jsonify({'status': 'error', 'message': 'Invalid CSV format'}), 400
+    
+    # Get headers
+    headers = [h.strip() for h in lines[0].split(',')]
+    
+    # Check each row for student ID
+    verification_successful = False
+    for line in lines[1:]:
+        row_data = [cell.strip().upper() for cell in line.split(',')]
+        if student_id.upper() in row_data:
+            verification_successful = True
+            break
+            
+except Exception as e:
+    print(f"Error parsing CSV: {e}")
+    return jsonify({'status': 'error', 'message': 'Failed to parse student data'}), 500
             for delimiter in [';', '\t', '|']:
                 try:
                     df = pd.read_csv(StringIO(csv_content), delimiter=delimiter)
@@ -1525,9 +1543,20 @@ def get_feedback_stats():
 
 # Helper function to convert sentiment to star rating (1-5)
 def get_rating_from_sentiment(feedback_text):
-    # Use TextBlob for sentiment analysis
-    blob = TextBlob(feedback_text)
-    polarity = blob.sentiment.polarity
+    # Simple keyword-based sentiment analysis for Vercel compatibility
+    positive_words = ['good', 'great', 'excellent', 'amazing', 'nice', 'love', 'best']
+    negative_words = ['bad', 'terrible', 'awful', 'hate', 'worst', 'horrible']
+    
+    text_lower = feedback_text.lower()
+    pos_count = sum(1 for word in positive_words if word in text_lower)
+    neg_count = sum(1 for word in negative_words if word in text_lower)
+    
+    if pos_count > neg_count:
+        return 4 + min(pos_count - neg_count, 1)  # 4-5 stars
+    elif neg_count > pos_count:
+        return max(1, 3 - (neg_count - pos_count))  # 1-2 stars
+    else:
+        return 3  # neutral
     
     # Convert polarity (-1 to 1) to rating (1 to 5)
     # -1 to -0.6: 1 star
@@ -1703,6 +1732,7 @@ def get_college_stats():
         }), 500
 # Keep this at the end
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False)
 
-app = app
+# Vercel handler
+handler = app
