@@ -91,7 +91,7 @@ except Exception as e:
 app = Flask(__name__)
 CORS(app, origins=[
     "http://localhost:3000",  # Keep for local development
-    "https://shiny-heliotrope-3ff1a0.netlify.app", # Your Netlify domain
+    "https://thefeedbackranker.netlify.app", # Your Netlify domain
     "https://*.netlify.app"  # All Netlify apps (optional)
 ])
 
