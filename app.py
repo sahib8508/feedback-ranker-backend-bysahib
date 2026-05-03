@@ -18,6 +18,8 @@ import requests
 import firebase_admin
 from firebase_admin import credentials, firestore
 from flask import redirect
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -90,10 +92,10 @@ except Exception as e:
 # Flask Setup
 app = Flask(__name__)
 CORS(app, origins=[
-    "http://localhost:3000",  # Keep for local development
-    "https://thefeedbackranker.netlify.app", # Your Netlify domain
-    "https://*.netlify.app"  # All Netlify apps (optional)
-])
+    "http://localhost:3000",
+    "https://thefeedbackranker.netlify.app",
+    "https://*.netlify.app"
+], supports_credentials=True)
 
 
 # Email configuration - Use environment variables for security
@@ -874,26 +876,29 @@ def reject_library_request():
         'emailSent': email_success
     })
 # Generic email sending function
-def send_email(to, subject, body):
-    message = f"Subject: {subject}\n\n{body}"
 
+def send_email(to, subject, body):
+    msg = MIMEMultipart()
+    msg['From'] = EMAIL_SENDER
+    msg['To'] = to
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain', 'utf-8'))
     try:
         print(f"📨 Trying to send email to {to}")
-
         with smtplib.SMTP('smtp.gmail.com', 587) as server:
             server.starttls()
             server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-            server.sendmail(EMAIL_SENDER, to, message)
-
+            server.sendmail(EMAIL_SENDER, to, msg.as_string())
         print(f"✅ Email successfully sent to {to}")
         return True
     except smtplib.SMTPAuthenticationError:
-        print("❌ Authentication failed. Gmail might be blocking the app.")
-        print("👉 Visit: https://myaccount.google.com/lesssecureapps OR check App Password settings.")
+        print("❌ Auth failed — check App Password")
         return False
     except Exception as e:
-        print("❌ Email sending failed:", e)
+        print("❌ Email failed:", e)
         return False
+
+    
 
 @app.route('/send_feedback_response', methods=['POST'])
 def send_feedback_response():
@@ -1554,8 +1559,10 @@ def get_rating_from_sentiment(feedback_text):
 
 
 
-@app.route('/send_email', methods=['POST'])
+@app.route('/send_email', methods=['POST', 'OPTIONS'])
 def send_direct_email():
+    if request.method == 'OPTIONS':
+        return '', 204
     data = request.get_json()
 
     if not data or not data.get('email', '').strip():
