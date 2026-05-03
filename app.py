@@ -1562,8 +1562,8 @@ def get_rating_from_sentiment(feedback_text):
 @app.route('/send_email', methods=['POST', 'OPTIONS'])
 def send_direct_email():
     if request.method == 'OPTIONS':
-        return '', 204
-    data = request.get_json()
+        response = jsonify({})  # ✅ FIXED
+        return response
 
     if not data or not data.get('email', '').strip():
         return jsonify({'status': 'error', 'message': 'Missing recipient email'}), 400
