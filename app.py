@@ -15,6 +15,7 @@ import traceback
 from dotenv import load_dotenv
 import logging
 import requests
+import threading
 import firebase_admin
 from firebase_admin import credentials, firestore
 from flask import redirect
@@ -885,10 +886,13 @@ def send_email(to, subject, body):
     msg.attach(MIMEText(body, 'plain', 'utf-8'))
     try:
         print(f"📨 Trying to send email to {to}")
-        with smtplib.SMTP('smtp.gmail.com', 587) as server:
-            server.starttls()
-            server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-            server.sendmail(EMAIL_SENDER, to, msg.as_string())
+        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=25)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        server.sendmail(EMAIL_SENDER, to, msg.as_string())
+        server.quit()
         print(f"✅ Email successfully sent to {to}")
         return True
     except smtplib.SMTPAuthenticationError:
@@ -898,6 +902,12 @@ def send_email(to, subject, body):
         print("❌ Email failed:", e)
         return False
 
+
+def send_email_async(to, subject, body):
+    thread = threading.Thread(target=send_email, args=(to, subject, body))
+    thread.daemon = True
+    thread.start()
+    return True
     
 
 @app.route('/send_feedback_response', methods=['POST'])
@@ -1562,7 +1572,12 @@ def get_rating_from_sentiment(feedback_text):
 @app.route('/send_email', methods=['POST', 'OPTIONS'])
 def send_direct_email():
     if request.method == 'OPTIONS':
-        return '', 204
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', 'https://thefeedbackranker.netlify.app')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'POST,OPTIONS')
+        return response, 204
+
     data = request.get_json()
 
     if not data or not data.get('email', '').strip():
@@ -1575,24 +1590,13 @@ def send_direct_email():
     if not message_body:
         return jsonify({'status': 'error', 'message': 'Email message is required'}), 400
 
-    success = send_email(
-        to=recipient_email,
-        subject=subject,
-        body=message_body
-    )
+    send_email_async(to=recipient_email, subject=subject, body=message_body)
 
-    if success:
-        return jsonify({
-            'status': 'success',
-            'message': f"Email sent to: {recipient_email}",
-            'emailSent': True
-        })
-    else:
-        return jsonify({
-            'status': 'error',
-            'message': 'Failed to send email',
-            'emailSent': False
-        }), 500
+    return jsonify({
+        'status': 'success',
+        'message': f"Email queued for: {recipient_email}",
+        'emailSent': True
+    })
     
    
 @app.route('/api/college_stats', methods=['GET'])
