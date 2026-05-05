@@ -879,27 +879,34 @@ def reject_library_request():
 # Generic email sending function
 
 def send_email(to, subject, body):
-    msg = MIMEMultipart()
-    msg['From'] = EMAIL_SENDER
-    msg['To'] = to
-    msg['Subject'] = subject
-    msg.attach(MIMEText(body, 'plain', 'utf-8'))
     try:
         print(f"📨 Trying to send email to {to}")
         brevo_key = os.getenv('BREVO_SMTP_KEY')
-        server = smtplib.SMTP('smtp-relay.brevo.com', 587, timeout=25)
-        server.ehlo()
-        server.starttls()
-        server.login('aa4388001@smtp-brevo.com', brevo_key)
-        server.sendmail(EMAIL_SENDER, to, msg.as_string())
-        server.quit()
-        print(f"✅ Email successfully sent to {to}")
-        return True
-    except smtplib.SMTPAuthenticationError:
-        print("❌ Auth failed — check Brevo key")
-        return False
+        
+        response = requests.post(
+            'https://api.brevo.com/v3/smtp/email',
+            headers={
+                'api-key': brevo_key,
+                'Content-Type': 'application/json'
+            },
+            json={
+                'sender': {'name': 'Campus Connect', 'email': EMAIL_SENDER},
+                'to': [{'email': to}],
+                'subject': subject,
+                'textContent': body
+            },
+            timeout=25
+        )
+        
+        if response.status_code == 201:
+            print(f"✅ Email successfully sent to {to}")
+            return True
+        else:
+            print(f"❌ Email failed: {response.status_code} {response.text}")
+            return False
+            
     except Exception as e:
-        print("❌ Email failed:", e)
+        print(f"❌ Email failed: {e}")
         return False
 
 
