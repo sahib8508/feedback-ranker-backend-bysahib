@@ -1590,12 +1590,12 @@ def send_direct_email():
     if not message_body:
         return jsonify({'status': 'error', 'message': 'Email message is required'}), 400
 
-    send_email_async(to=recipient_email, subject=subject, body=message_body)
+    success = send_email(to=recipient_email, subject=subject, body=message_body)
 
     return jsonify({
-        'status': 'success',
-        'message': f"Email queued for: {recipient_email}",
-        'emailSent': True
+        'status': 'success' if success else 'error',
+        'message': f"Email sent to: {recipient_email}" if success else "Email failed",
+        'emailSent': success
     })
     
    
