@@ -886,17 +886,17 @@ def send_email(to, subject, body):
     msg.attach(MIMEText(body, 'plain', 'utf-8'))
     try:
         print(f"📨 Trying to send email to {to}")
-        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=25)
+        brevo_key = os.getenv('BREVO_SMTP_KEY')
+        server = smtplib.SMTP('smtp-relay.brevo.com', 587, timeout=25)
         server.ehlo()
         server.starttls()
-        server.ehlo()
-        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        server.login('aa4388001@smtp-brevo.com', brevo_key)
         server.sendmail(EMAIL_SENDER, to, msg.as_string())
         server.quit()
         print(f"✅ Email successfully sent to {to}")
         return True
     except smtplib.SMTPAuthenticationError:
-        print("❌ Auth failed — check App Password")
+        print("❌ Auth failed — check Brevo key")
         return False
     except Exception as e:
         print("❌ Email failed:", e)
