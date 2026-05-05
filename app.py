@@ -1562,8 +1562,13 @@ def get_rating_from_sentiment(feedback_text):
 @app.route('/send_email', methods=['POST', 'OPTIONS'])
 def send_direct_email():
     if request.method == 'OPTIONS':
-        response = jsonify({})  # ✅ FIXED
-        return response
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', 'https://thefeedbackranker.netlify.app')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'POST,OPTIONS')
+        return response, 204
+
+    data = request.get_json()
 
     if not data or not data.get('email', '').strip():
         return jsonify({'status': 'error', 'message': 'Missing recipient email'}), 400
