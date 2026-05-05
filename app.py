@@ -231,53 +231,50 @@ def ai_feedback_summary():
         }), 500
 
 def call_huggingface_api(feedbacks, is_rejected, api_key):
-    print(">>> Calling HuggingFace API...")  # ADD THIS
-    """Call Hugging Face API with better prompt handling"""
+    """Powered by Groq (Llama 3.1) - 100% free, no credit card, works on 1-2 short reviews"""
+    print(">>> Calling Groq API...")
     try:
-        # Use a different model that's better for text generation
-        API_URL = "https://router.huggingface.co/hf-inference/models/sshleifer/distilbart-cnn-12-6"
-        headers = {
-    "Authorization": f"Bearer {api_key}",
-    "X-Wait-For-Model": "true"
-}
-        
-        # Create a simple input text without complex prompting
-        feedback_text = " | ".join(feedbacks[:10])  # Limit to first 10 feedbacks
-        
-        if is_rejected:
-            input_text = f"These college feedback submissions were rejected: {feedback_text}. Summary:"
-        else:
-            input_text = f"Student college reviews: {feedback_text}. Summary:"
-        
-        payload = {
-            "inputs": input_text,
-            "parameters": {
-                "max_new_tokens": 100,
-                "temperature": 0.7,
-                "do_sample": True,
-                "top_p": 0.9,
-                "repetition_penalty": 1.1
-            }
-        }
-        
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=120)
+        from groq import Groq
 
-        print(f">>> HuggingFace status code: {response.status_code}")
-        print(f">>> HuggingFace response: {response.json()}")
-        
-        if response.status_code == 200:
-            result = response.json()
-            if isinstance(result, list) and len(result) > 0:
-                # Handle both 'summary_text' and 'generated_text' response formats
-                summary = result[0].get('summary_text', '') or result[0].get('generated_text', '')
-                summary = summary.strip()
-                if len(summary) > 20:
-                    return summary
-        
+        groq_key = os.getenv("GROQ_API_KEY")
+        if not groq_key:
+            logger.error("GROQ_API_KEY not set in environment variables")
+            return None
+
+        client = Groq(api_key=groq_key)
+
+        feedback_text = " | ".join(feedbacks[:10])
+
+        if is_rejected:
+            prompt = (
+                f"These are rejected student college feedback submissions: \"{feedback_text}\"\n"
+                f"Write a 2-3 sentence neutral summary of what issues students raised. "
+                f"Be concise and factual. Do not repeat the input."
+            )
+        else:
+            prompt = (
+                f"These are student reviews about a college: \"{feedback_text}\"\n"
+                f"Write a 2-3 sentence summary of the main student concerns or praises. "
+                f"Be concise and factual. Do not repeat the input."
+            )
+
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=150,
+            temperature=0.5
+        )
+
+        summary = response.choices[0].message.content.strip()
+        print(f">>> Groq summary: {summary}")
+
+        if summary and len(summary) > 10:
+            return summary
+
         return None
-        
+
     except Exception as e:
-        logger.error(f"Hugging Face API error: {str(e)}")
+        logger.error(f"Groq API error: {str(e)}")
         return None
 
 def generate_local_summary(feedbacks, is_rejected=False):
