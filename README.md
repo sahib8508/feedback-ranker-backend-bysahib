@@ -1,3 +1,10 @@
+## Related Repository
+
+The complete project including both frontend and backend source code is available at:
+
+https://github.com/sahib8508/feedback-ranker-both-frontend-and-backend-
+
+
 # Feedback Ranker
 
 A full-stack web application that enables students to submit verified feedback about their colleges, and allows college administrators to manage, respond to, and analyze that feedback through an AI-powered dashboard.
@@ -252,11 +259,7 @@ Firebase Storage is used to store uploaded resource files and college student CS
 
 ---
 
-## Related Repository
 
-The complete project including both frontend and backend source code is available at:
-
-https://github.com/sahib8508/feedback-ranker-both-frontend-and-backend-
 
 ---
 
