@@ -3,7 +3,7 @@
 The complete project including both frontend and backend source code is available at:
 
 https://github.com/sahib8508/feedback-ranker-both-frontend-and-backend-
-
+---
 
 # Feedback Ranker
 
@@ -261,7 +261,7 @@ Firebase Storage is used to store uploaded resource files and college student CS
 
 
 
----
+
 
 ## Author
 
